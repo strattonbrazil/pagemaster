@@ -66,7 +66,12 @@ public class PageView extends View {
     	final int topMargin = (int)((this.getHeight() - scaledHeight) * 0.5f);
     	//final int bottomMargin = image.getHeight() + topMargin;
     	//Log.i("foo", "" + topMargin + " & " + scaledHeight);
-    	canvas.drawBitmap(image, null, new Rect(0, topMargin, this.getWidth()-1, topMargin+scaledHeight), paint);
+    	//Bitmap scaled = Bitmap.createScaledBitmap(image, this.getWidth(), scaledHeight, true);
+    	
+    	canvas.drawBitmap(image, null, new Rect(0, 50+topMargin, this.getWidth()-1, topMargin+scaledHeight), paint);
+    	//scaled.recycle();
+    	//scaled = null;
+    	//System.gc();
     }
     
     class AnimatedRunnable implements Runnable
