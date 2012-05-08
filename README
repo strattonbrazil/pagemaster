@@ -1,0 +1,1 @@
+Pagemaster is a simple android app, which sets up a webview for browser pages.  It also includes a toHtml.py to convert a story formmatted in json into separate html web pages linked together.  It assumes all the images are located in a flat file structure.  
