@@ -31,7 +31,8 @@ for page in story['pages']:
     pageTitles.append(page['title'])
     content += '\n\\label{%s}\n' % page['title']
 
-#    \includegraphics{myfig.pdf}
+    if 'image' in page:
+        content += '\\includegraphics[width=\\textwidth,height=\\textheight,keepaspectratio]{%s}\n\n' % page['image']
 
     content += '%s\n\n' % page['content']
     content += '\\vspace{1 em}\n'
@@ -40,7 +41,7 @@ for page in story['pages']:
         for option in page['options']:
             choice, dstPage = option
             pageRefs[dstPage].append(page['title'])
-            content += '\\noindent %s, goto page \\pageref{%s}\n\n' % (choice, dstPage)
+            content += '\\noindent %s, goto page \\pageref{%s}.\n\n' % (choice, dstPage)
             content += '\n'
 
 for title in pageTitles:
