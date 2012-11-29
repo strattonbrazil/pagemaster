@@ -1,5 +1,22 @@
 {
-     "author": "Josh Stratton",
-     "illustrator" : "Anthony Holden",
-	 "start page" : "so_it_begins.html"
+  "title" : "The Long Night",
+  "author": "Josh Stratton",
+  "illustrator" : "Anthony Holden",
+  "start page" : "so it begins",
+  "pages" : [
+    { 
+      "title" : "so it begins",
+      "content" : "Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in liberty, and dedicated to the proposition that all men are created equal. \n\nwoops.\n\n",
+      "options" : [ [ "If you decide to bank", "bank fight" ],
+		    [ "If you'd rather go to the store first", "jerk clerk" ] ]
+    },
+    {
+      "title" : "bank fight",
+      "content" : "You arrive at the bank and a brawl ensues.  You are beaten to death.  Sorry.  "
+    },
+    {
+      "title" : "jerk clerk",
+      "content" : "You arrive at the store and the clerk is a jerk"
+    }
+  ]
 }
