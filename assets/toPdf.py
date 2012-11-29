@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import sys, os, json, tempfile, subprocess, time
+from collections import defaultdict
 from pyPdf import PdfFileWriter
 
 if len(sys.argv) < 2:
@@ -12,21 +13,6 @@ story = json.load(open(sys.argv[1], 'r'))
 
 print(story)
 
-'''
-# write every page to its own html
-tmpDir = tempfile.mkdtemp()
-
-# turn every page into its own pdf
-for i,page in enumerate(story['pages']):
-    html = tempfile.NamedTemporaryFile(prefix='page%i-'%i, suffix='.html', dir=tmpDir, delete=False)
-    html.write(page['content'])
-    print(html.name)
-
-print(tmpDir)
-
-# combine all pdfs into one
-'''
-
 # write everything to latex
 latexFile = tempfile.NamedTemporaryFile('w+', suffix='.tex', delete=False)
 print("""
@@ -35,29 +21,41 @@ print("""
 ***********************************
 """ % latexFile.name)
 
+pageTitles = []
+pageRefs = defaultdict(list)
+
 content = ''
 for page in story['pages']:
-    #content += '\\pagestyle{myheadings}'
-    #content += '\\markright{%s}\n' % page['title']
     if page['title'] != story['start page']:
         content += '\\newpage\n'
+    pageTitles.append(page['title'])
     content += '\n\\label{%s}\n' % page['title']
-    pageContent = '\n' + page['content']
-#    pageContent = pageContent.replace('\n\n', '\n\n')
-#    pageContent = pageContent.replace('\n', '\n\n')
 
-    content += '%s\n\n' % pageContent
+#    \includegraphics{myfig.pdf}
+
+    content += '%s\n\n' % page['content']
     content += '\\vspace{1 em}\n'
-
+    
     if 'options' in page: # if not story-ender
         for option in page['options']:
             choice, dstPage = option
+            pageRefs[dstPage].append(page['title'])
             content += '\\noindent %s, goto page \\pageref{%s}\n\n' % (choice, dstPage)
             content += '\n'
+
+for title in pageTitles:
+    if title not in pageRefs and title != story['start page']:
+        print('* warning: `%s` page is never referenced' % title)
+for ref in pageRefs:
+    if ref not in pageTitles:
+        for title in pageRefs[ref]:
+            print('* warning: `%s` page is referenced by `%s`, but never defined' % (ref, title))
+print('\n...done building latex file\n')
 
 latexFile.write(r"""
 \documentclass{article}
 \usepackage{lipsum}
+\usepackage{graphicx}
 
 \title{%(title)s}
 
