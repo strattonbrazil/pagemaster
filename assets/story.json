@@ -8,7 +8,7 @@
       "title" : "so it begins",
       "image" : "ninjerktsu_lonelyocto.jpg",
       "content" : "Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in liberty, and dedicated to the proposition that all men are created equal. ",
-      "options" : [ [ "If you decide to bank", "bank fight" ],
+      "options" : [ [ "If you decide to bank because you're lazy and for whatever reason you think its a better idea", "bank fight" ],
 		    [ "If you'd rather go to the store first", "jerk clerk" ] ]
     },
     {

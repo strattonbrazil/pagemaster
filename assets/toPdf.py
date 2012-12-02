@@ -37,6 +37,26 @@ def getHorizontalLine():
 \\nointerlineskip
 '''
 
+"""
+def getGoto(choice, dstPage):
+    return '''
+\\begingroup
+%\\leftskip4em
+%\\rightskip\\leftskip
+\\textit{%s, goto page \\pageref{%s}.}
+%\\par
+\\endgroup''' % (choice, dstPage)
+""" 
+
+def getGoto(choice, dstPage):
+    return '''
+\\begin{flushright}
+\\leftskip6em
+\\textit{%s, goto page \\pageref{%s}.}
+\\end{flushright}''' % (choice, dstPage)
+
+#            content += '\\hfill \n\n' % (choice, dstPage)    
+
 content = ''
 for page in story['pages']:
     if page['title'] != story['start page']:
@@ -61,11 +81,15 @@ for page in story['pages']:
         content += '\\vfill\n'
 
         content += getHorizontalLine()
-        for option in page['options']:
+        for i,option in enumerate(page['options']):
             choice, dstPage = option
             pageRefs[dstPage].append(page['title'])
-            content += '\\hfill \\textit{%s, goto page \\pageref{%s}.}\n\n' % (choice, dstPage)
+
+            content += getGoto(choice, dstPage)
+
             content += '\n'
+#            if i < len(page['options'])-1:
+#                content += '\\vspace{1 em}\n'
     else:
         content += '''
 \\centerline{ \\bf{ The End } }
@@ -82,10 +106,21 @@ for ref in pageRefs:
 print('\n...done building latex file\n')
 
 latexFile.write(r"""
-\documentclass{article}
+\documentclass[twoside]{book}
+\usepackage{fancyhdr}
 \usepackage[margin=.5in, paperwidth=5in, paperheight=8in]{geometry}
 \usepackage{lipsum}
 \usepackage{graphicx}
+
+\setlength{\headheight}{3em}
+
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[LE]{}
+\fancyhead[RE]{\bf{\LARGE{\thepage}}}
+\fancyhead[LO]{}
+\fancyhead[RO]{\bf{\LARGE{\thepage}}}
+\pagestyle{fancy}
 
 \title{%(title)s}
 
