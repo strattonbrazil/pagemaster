@@ -7,13 +7,15 @@
     { 
       "title" : "so it begins",
       "image" : "ninjerktsu_lonelyocto.jpg",
-      "content" : "Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in liberty, and dedicated to the proposition that all men are created equal. \n\nwoops.\n\n",
+      "content" : "Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in liberty, and dedicated to the proposition that all men are created equal. ",
       "options" : [ [ "If you decide to bank", "bank fight" ],
 		    [ "If you'd rather go to the store first", "jerk clerk" ] ]
     },
     {
       "title" : "bank fight",
-      "content" : "You arrive at the bank and a brawl ensues.  You are beaten to death.  Sorry.  "
+      "image" : "stampede.jpg",
+
+      "content" : "You arrive at the bank and a brawl ensues.  You are trampeled to death.  Sorry.  "
     },
     {
       "title" : "jerk clerk",
