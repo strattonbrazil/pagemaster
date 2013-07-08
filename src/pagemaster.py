@@ -7,20 +7,16 @@ from PyQt4 import QtGui, QtCore, QtWebKit
 import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-app = QtGui.QApplication(sys.argv)
-
-window = QtGui.QMainWindow()
-
-layout = QtGui.QHBoxLayout()
-widget = QtGui.QWidget()
-widget.setLayout(layout)
+from pagedialog import PageDialog
 
 class Workspace(QtGui.QWidget):
     def __init__(self, *args):
         super(Workspace, self).__init__(*args)
         self.setMouseTracking(True)
+
         self._selectedPage = None
         self._hoverPage = None
+        self._activeButton = None
 
         self.story = {
             'title' : '(title of story)',
@@ -119,14 +115,46 @@ class Workspace(QtGui.QWidget):
 #        self.update()
 
     def mousePressEvent(self, event):
-        self._selectedPage = self._pageUnderMouse(event.pos())
+
+
+        if self._activeButton == None:
+            # TODO: change these to enumerations
+            if event.button() == 1: # picking or moving
+                self._selectedPage = self._pageUnderMouse(event.pos())
+                self._mousePick = event.pos()
+
+            self._activeButton = event.button()            
 
         self.update()
-#        print(event.button() )
-#        print('something pressed')
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == self._activeButton:
+            self._activeButton = None
 
     def mouseMoveEvent(self, event):
-        self._hoverPage = self._pageUnderMouse(event.pos())
+        if self._activeButton == None:
+            self._hoverPage = self._pageUnderMouse(event.pos())
+        else:
+            self._hoverPage = None
+
+        if self._activeButton == 1:
+            position = self.story['pages'][self._selectedPage]['meta']['position']
+            xDiff = event.pos().x() - self._mousePick.x()
+            yDiff = event.pos().y() - self._mousePick.y()
+            print(xDiff)
+            position['x'] = position['x'] + xDiff
+            position['y'] = position['y'] + yDiff
+            self._mousePick = event.pos()
+
+        self.update()
+
+    def mouseDoubleClickEvent(self, event):
+        if self._selectedPage:
+            dialog = PageDialog(self, 
+                                title=self._selectedPage,
+                                info=self.story['pages'][self._selectedPage])
+            dialog.exec_()
+
         self.update()
 
     def _pageUnderMouse(self, pos):
@@ -143,21 +171,18 @@ class Workspace(QtGui.QWidget):
 
         return None
 
-    
+
+app = QtGui.QApplication(sys.argv)
+
+window = QtGui.QMainWindow()
+window.setWindowTitle('Page Master')
+
+layout = QtGui.QHBoxLayout()
+widget = QtGui.QWidget()
+widget.setLayout(layout)
 
 workspace = Workspace()
 layout.addWidget(workspace)
-'''
-webView = QtWebKit.QWebView()
-webView.load(QtCore.QUrl('./index.html'))
-
-layout.addWidget(webView)
-
-def loadValue():
-    doc = webView.page().mainFrame().documentElement()
-    search = doc.findFirst('input[name=username]')
-    search.setAttribute('value', 'Josh')
-'''
 
 button = QtGui.QPushButton('Load Value')
 #button.clicked.connect(loadValue)
