@@ -8,29 +8,35 @@ import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 from pagedialog import PageDialog
+from editor import WorkspaceEditor
 
 class Workspace(QtGui.QWidget):
-    def __init__(self, *args):
-        super(Workspace, self).__init__(*args)
+    def __init__(self):
+        super(Workspace, self).__init__()
         self.setMouseTracking(True)
 
         self._selectedPage = None
         self._hoverPage = None
         self._activeButton = None
+        self._editor = None
 
         self.story = {
             'title' : '(title of story)',
             'author' : '(your name goes here)',
             'illustrator' : '(leave blank if none)',
             'start page' : '',
-            'pages' : collections.OrderedDict([
-                ('first page', { 'image' : None,
-                                 'content' : 'This is the beginning of your story',
-                                 'options' : [],
-                                 }
-                 )
-                ])
+            'pages' : collections.OrderedDict()
             }
+
+        self._createPage('first page')
+        self._createPage('second page', QtCore.QPoint(100, 100))
+        self._createPage('third page', QtCore.QPoint(200, 200))
+        self._createPage('fourth page', QtCore.QPoint(300, 300))
+
+    def editor(self):
+        if not self._editor:
+            self._editor = WorkspaceEditor(self)
+        return self._editor
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
@@ -54,6 +60,13 @@ class Workspace(QtGui.QWidget):
             boxWidth = titleWidth+margin*2
             boxHeight = titleHeight+margin*2
 
+            # draw shadow
+            painter.setBrush(QtGui.QColor(20, 20, 20))
+            painter.drawRect(position['x'] + 3,
+                             position['y'] + 3,
+                             boxWidth,
+                             boxHeight)
+
             highlightColor = None
             if pageTitle == self._hoverPage and pageTitle == self._selectedPage:
                 highlightColor = QtCore.Qt.blue
@@ -71,13 +84,11 @@ class Workspace(QtGui.QWidget):
                                         boxHeight+prehighlightMargin*2,
                                         margin, margin)
 
-            painter.setBrush(QtCore.Qt.yellow)
-            painter.drawRoundedRect(position['x'],
-                                    position['y'],
-                                    boxWidth,
-                                    boxHeight,
-                                    margin, margin)
-
+            painter.setBrush(QtCore.Qt.white)
+            painter.drawRect(position['x'],
+                             position['y'],
+                             boxWidth,
+                             boxHeight)
 
             # save off for picking
             pageInfo['meta']['boxWidth'] = boxWidth
@@ -88,6 +99,15 @@ class Workspace(QtGui.QWidget):
             painter.drawText(position['x']+margin,
                              position['y']+titleHeight+margin,
                              pageTitle)
+
+        self._drawOverlay(painter)
+
+    def _drawOverlay(self, painter):
+        pass
+
+        # gather all nodes to find range
+
+        # render each node
 
     def sizeHint(self):
         return QtCore.QSize(800, 600)
@@ -102,9 +122,7 @@ class Workspace(QtGui.QWidget):
 
         action = menu.exec_(self.mapToGlobal(event.pos()))
         if action == addPageAction:
-            self.addPage(event.pos().x(),
-                         event.pos().y())
-            self.story['pages']
+            self._createPage('new page', event.pos())
 
     def addPage(self, x, y):
         raise NotImplementedError()
@@ -120,10 +138,10 @@ class Workspace(QtGui.QWidget):
         if self._activeButton == None:
             # TODO: change these to enumerations
             if event.button() == 1: # picking or moving
-                self._selectedPage = self._pageUnderMouse(event.pos())
+                self._setSelectedPage(self._pageUnderMouse(event.pos()))
                 self._mousePick = event.pos()
 
-            self._activeButton = event.button()            
+                self._activeButton = event.button()            
 
         self.update()
 
@@ -141,13 +159,13 @@ class Workspace(QtGui.QWidget):
             position = self.story['pages'][self._selectedPage]['meta']['position']
             xDiff = event.pos().x() - self._mousePick.x()
             yDiff = event.pos().y() - self._mousePick.y()
-            print(xDiff)
             position['x'] = position['x'] + xDiff
             position['y'] = position['y'] + yDiff
             self._mousePick = event.pos()
 
         self.update()
 
+        '''
     def mouseDoubleClickEvent(self, event):
         if self._selectedPage:
             dialog = PageDialog(self, 
@@ -156,10 +174,15 @@ class Workspace(QtGui.QWidget):
             dialog.exec_()
 
         self.update()
+'''
 
     def _pageUnderMouse(self, pos):
         for pageTitle,pageInfo in self.story['pages'].iteritems():
             pagePos = pageInfo['meta']['position']
+
+            # skip unrendered pages
+            if 'boxWidth' not in pageInfo['meta']:
+                continue
 
             pageRect = QtCore.QRect(pageInfo['meta']['position']['x'],
                                     pageInfo['meta']['position']['y'],
@@ -171,6 +194,34 @@ class Workspace(QtGui.QWidget):
 
         return None
 
+    def _createPage(self, title, pos=None):
+        uniqueTitle = title
+        counter = 1
+        while uniqueTitle in self.story['pages']:
+            uniqueTitle = '%s_%i' % (title, counter)
+            counter += 1
+
+        self.story['pages'][uniqueTitle] = \
+            {
+                'image' : None,
+                'content' : 'This is the beginning of your story',
+                'options' : [],
+                'meta' : {}
+            }
+
+        if pos:
+            self.story['pages'][uniqueTitle]['meta']['position'] = \
+                {
+                    'x' : pos.x(),
+                    'y' : pos.y()
+                }
+
+    def _setSelectedPage(self, page):
+        if page != self._selectedPage:
+            self.editor().updatePage(page)
+
+        self._selectedPage = page
+        
 
 app = QtGui.QApplication(sys.argv)
 
@@ -182,11 +233,9 @@ widget = QtGui.QWidget()
 widget.setLayout(layout)
 
 workspace = Workspace()
-layout.addWidget(workspace)
 
-button = QtGui.QPushButton('Load Value')
-#button.clicked.connect(loadValue)
-layout.addWidget(button)
+layout.addWidget(workspace)
+layout.addWidget(workspace.editor())
 
 window.setCentralWidget(widget)
 window.show()
