@@ -98,8 +98,14 @@ class WorkspaceEditor(QtGui.QWidget):
             options[option] = {}
 
         dialog = OptionsDialog(self, options)
-        if not dialog.exec_(): # TODO: check against enum
-            return
+        if dialog.exec_(): # TODO: check against enum
+            title = self._parseTitle()
+            optionTitle = dialog.option()
+            workspace = self._workspace
+
+            workspace.story['pages'][title]['options'].append(
+                { 'text' : 'text to go to',
+                  'title' : optionTitle })
         
 
     def _eligibleOptions(self): # return list of eligible pages
@@ -107,9 +113,13 @@ class WorkspaceEditor(QtGui.QWidget):
 
         options = []
 
+        currentOptions = self._workspace.story['pages'][title]['options']
         for otherTitle in self._workspace.story['pages']:
             if otherTitle != title:
-                # TODO: should not add if already linked as option
-                options.append(otherTitle)
+                for text,optionTitle in currentOptions:
+                    if optionTitle == otherTitle:
+                        break
+                else:
+                    options.append(otherTitle)
 
         return options

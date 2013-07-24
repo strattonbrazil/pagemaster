@@ -43,13 +43,13 @@ class Workspace(QtGui.QWidget):
 
         painter.fillRect(0, 0, self.width(), self.height(), QtCore.Qt.darkGray)
 
+        # calculate positions
+        #
         for pageTitle, pageInfo in self.story['pages'].iteritems():
             if 'meta' not in pageInfo:
                 pageInfo['meta'] = {}
             if 'position' not in pageInfo['meta']:
                 pageInfo['meta']['position'] = { 'x' : 50, 'y' : 50 }
-
-            position = pageInfo['meta']['position']
 
             fm = QtGui.QFontMetrics(painter.font())
             titleWidth = fm.width(pageTitle)
@@ -59,6 +59,49 @@ class Workspace(QtGui.QWidget):
 
             boxWidth = titleWidth+margin*2
             boxHeight = titleHeight+margin*2
+
+            # save off for picking
+            pageInfo['meta']['boxWidth'] = boxWidth
+            pageInfo['meta']['boxHeight'] = boxHeight
+
+        # draw hover info
+        #
+        if self._hoverPage:
+            hoverInfo = self.story['pages'][self._hoverPage]
+
+            boxPos = hoverInfo['meta']['position']
+            
+            painter.setBrush(QtGui.QColor(220, 220, 220))
+            painter.drawRect(boxPos['x'],
+                             boxPos['y'] + hoverInfo['meta']['boxHeight'] + 10,
+                             80,
+                             80)
+
+        # draw option lines
+        #
+        for pageTitle, pageInfo in self.story['pages'].iteritems():
+            for option in self.story['pages'][pageTitle]['options']:
+                pageTo = self.story['pages'][option['title']]
+
+                p1 = pageInfo['meta']['position']
+                p2 = pageTo['meta']['position']
+
+                srcXOffset = pageInfo['meta']['boxWidth'] / 2
+                srcYOffset = pageInfo['meta']['boxHeight']
+                dstXOffset = pageTo['meta']['boxWidth'] / 2
+                
+                
+                painter.drawLine(p1['x'] + srcXOffset, p1['y'] + srcYOffset,
+                                 p2['x'] + dstXOffset, p2['y'])
+
+
+        # draw boxes
+        #
+        for pageTitle, pageInfo in self.story['pages'].iteritems():
+            position = pageInfo['meta']['position']
+
+            boxWidth = pageInfo['meta']['boxWidth']
+            boxHeight = pageInfo['meta']['boxHeight']
 
             # draw shadow
             painter.setBrush(QtGui.QColor(20, 20, 20))
@@ -90,9 +133,6 @@ class Workspace(QtGui.QWidget):
                              boxWidth,
                              boxHeight)
 
-            # save off for picking
-            pageInfo['meta']['boxWidth'] = boxWidth
-            pageInfo['meta']['boxHeight'] = boxHeight
 
 #            painter.fillRect(
 #                             QtCore.Qt.yellow)
@@ -118,11 +158,16 @@ class Workspace(QtGui.QWidget):
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
 
-        addPageAction = menu.addAction('Add page')
-
-        action = menu.exec_(self.mapToGlobal(event.pos()))
-        if action == addPageAction:
-            self._createPage('new page', event.pos())
+        if self._hoverPage:
+            setStartPageAction = menu.addAction('Set as start page')
+            action = menu.exec_(self.mapToGlobal(event.pos()))
+            if action == setStartPageAction:
+                print('set hover page as start page')
+        else:
+            addPageAction = menu.addAction('Add page')
+            action = menu.exec_(self.mapToGlobal(event.pos()))
+            if action == addPageAction:
+                self._createPage('new page', event.pos())
 
     def addPage(self, x, y):
         raise NotImplementedError()
@@ -155,7 +200,9 @@ class Workspace(QtGui.QWidget):
         else:
             self._hoverPage = None
 
-        if self._activeButton == 1:
+        if self._activeButton == None:
+            pass
+        elif self._activeButton == 1:
             position = self.story['pages'][self._selectedPage]['meta']['position']
             xDiff = event.pos().x() - self._mousePick.x()
             yDiff = event.pos().y() - self._mousePick.y()

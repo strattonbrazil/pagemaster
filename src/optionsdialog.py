@@ -21,6 +21,10 @@ class OptionsDialog(QtGui.QDialog):
             item = QtGui.QStandardItem(option)
             model.appendRow(item)
 
+        self.connect(self._optionsList.selectionModel(), 
+                     QtCore.SIGNAL("currentChanged(const QModelIndex&, const QModelIndex&)"),
+                     self._updateAddButton)
+
         # TODO: wire escape to close dialog
 
         # and accept/cancel buttons
@@ -31,11 +35,16 @@ class OptionsDialog(QtGui.QDialog):
         footer.layout().addStretch()
         self._addOptionButton = QtGui.QPushButton('Add Option')
         self._addOptionButton.setEnabled(False)
-        self.connect(self._addOptionsButton, QtCore.SIGNAL("released()"), self._accepted)
+        self.connect(self._addOptionButton, QtCore.SIGNAL("released()"), self.accept)
         footer.layout().addWidget(self._addOptionButton)
 
-    def _addOptionAccepted(self):
-        print('add valid option')
+    def _updateAddButton(self, current, previous):
+        # if valid selection
+        self._addOptionButton.setEnabled(True)
+
+    def option(self):
+        indexes = self._optionsList.selectionModel().selectedIndexes()
+        return str(self._optionsList.model().data(indexes[0]).toString())
 
 # TODO: wire text change to filter list
 # TODO: wire list selection to change button
