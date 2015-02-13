@@ -20,7 +20,6 @@ class WorkspaceEditor(QtGui.QWidget):
         self._stack.addWidget(self._pageEditWidget)
         pageEditLayout = QtGui.QVBoxLayout()
         self._pageEditWidget.setLayout(pageEditLayout)
-#        self.setLayout(layout)
 
         self._titleButton = QtGui.QPushButton()
         self._imageButton = QtGui.QPushButton(WorkspaceEditor.NO_IMAGE_TEXT)
@@ -44,12 +43,14 @@ class WorkspaceEditor(QtGui.QWidget):
 
         pageEditLayout.addWidget(self._addOptionButton)
 
-    def updatePage(self, title):
-        if title is None:
+    def setPage(self, pageId, page):
+        self._currentPage = page
+
+        if page is None:
             self._stack.setCurrentWidget(self._labelWidget)
             return
 
-        content = self._workspace.story['pages'][title]['content']
+        content = page.content
 
         self._titleButton.setText('Title: ' + title)
         self._textArea.setText(content)
@@ -75,13 +76,13 @@ class WorkspaceEditor(QtGui.QWidget):
         if updateTitle == '':
             return
 
-        for title in self._workspace.story['pages']:
+        for title in self._workspace.story.pages:
             if updateTitle == title:
                 print('page with that name already exists')
                 return
 
-        pageInfo = self._workspace.story['pages'].pop(title)
-        self._workspace.story['pages'][updateTitle] = pageInfo
+        pageInfo = self._workspace.story.pages.pop(title)
+        self._workspace.story.pages[updateTitle] = pageInfo
         
         self._workspace.update()
 
@@ -90,7 +91,7 @@ class WorkspaceEditor(QtGui.QWidget):
 
     def updateContent(self):
         title = self._parseTitle()
-        self._workspace.story['pages'][title]['content'] = self._textArea.toPlainText()
+        self._currentPage.content = self._textArea.toPlainText()
 
     def addOption(self):
         options = {}
@@ -103,7 +104,7 @@ class WorkspaceEditor(QtGui.QWidget):
             optionTitle = dialog.option()
             workspace = self._workspace
 
-            workspace.story['pages'][title]['options'].append(
+            self._currentPage.options.append(
                 { 'text' : 'text to go to',
                   'title' : optionTitle })
         
@@ -113,8 +114,8 @@ class WorkspaceEditor(QtGui.QWidget):
 
         options = []
 
-        currentOptions = self._workspace.story['pages'][title]['options']
-        for otherTitle in self._workspace.story['pages']:
+        currentOptions = self._workspace.story.pages[title].options
+        for otherTitle in self._workspace.story.pages:
             if otherTitle != title:
                 for text,optionTitle in currentOptions:
                     if optionTitle == otherTitle:

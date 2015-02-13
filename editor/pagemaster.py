@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys
-import collections
 from PyQt4 import QtGui, QtCore, QtWebKit
 
 import signal
@@ -9,6 +8,7 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 from pagedialog import PageDialog
 from editor import WorkspaceEditor
+from models import Story, Page
 
 class Workspace(QtGui.QWidget):
     def __init__(self):
@@ -20,18 +20,12 @@ class Workspace(QtGui.QWidget):
         self._activeButton = None
         self._editor = None
 
-        self.story = {
-            'title' : '(title of story)',
-            'author' : '(your name goes here)',
-            'illustrator' : '(leave blank if none)',
-            'start page' : '',
-            'pages' : collections.OrderedDict()
-            }
+        self.story = Story()
 
-        self._createPage('first page')
-        self._createPage('second page', QtCore.QPoint(100, 100))
-        self._createPage('third page', QtCore.QPoint(200, 200))
-        self._createPage('fourth page', QtCore.QPoint(300, 300))
+        self.story.createPage('first page')
+        self.story.createPage('second page', QtCore.QPoint(100, 100))
+        self.story.createPage('third page', QtCore.QPoint(200, 200))
+        self.story.createPage('fourth page', QtCore.QPoint(300, 300))
 
     def editor(self):
         if not self._editor:
@@ -45,14 +39,12 @@ class Workspace(QtGui.QWidget):
 
         # calculate positions
         #
-        for pageTitle, pageInfo in self.story['pages'].iteritems():
-            if 'meta' not in pageInfo:
-                pageInfo['meta'] = {}
-            if 'position' not in pageInfo['meta']:
-                pageInfo['meta']['position'] = { 'x' : 50, 'y' : 50 }
+        for page in self.story.getPages():
+            if 'position' not in page.meta:
+                page.meta['position'] = { 'x' : 50, 'y' : 50 }
 
             fm = QtGui.QFontMetrics(painter.font())
-            titleWidth = fm.width(pageTitle)
+            titleWidth = fm.width(page.title)
             titleHeight = fm.height()
 
             margin = 10
@@ -61,34 +53,32 @@ class Workspace(QtGui.QWidget):
             boxHeight = titleHeight+margin*2
 
             # save off for picking
-            pageInfo['meta']['boxWidth'] = boxWidth
-            pageInfo['meta']['boxHeight'] = boxHeight
+            page.meta['boxWidth'] = boxWidth
+            page.meta['boxHeight'] = boxHeight
 
         # draw hover info
         #
         if self._hoverPage:
-            hoverInfo = self.story['pages'][self._hoverPage]
-
-            boxPos = hoverInfo['meta']['position']
+            boxPos = self._hoverPage.meta['position']
             
             painter.setBrush(QtGui.QColor(220, 220, 220))
             painter.drawRect(boxPos['x'],
-                             boxPos['y'] + hoverInfo['meta']['boxHeight'] + 10,
+                             boxPos['y'] + self._hoverPage.meta['boxHeight'] + 10,
                              80,
                              80)
 
         # draw option lines
         #
-        for pageTitle, pageInfo in self.story['pages'].iteritems():
-            for option in self.story['pages'][pageTitle]['options']:
-                pageTo = self.story['pages'][option['title']]
+        for page in self.story.getPages():
+            for dstPageId in page.options:
+                dstPage = self.story.getPageById(dstPageId)
 
-                p1 = pageInfo['meta']['position']
-                p2 = pageTo['meta']['position']
+                p1 = page.meta['position']
+                p2 = dstPage.meta['position']
 
-                srcXOffset = pageInfo['meta']['boxWidth'] / 2
-                srcYOffset = pageInfo['meta']['boxHeight']
-                dstXOffset = pageTo['meta']['boxWidth'] / 2
+                srcXOffset = page.meta['boxWidth'] / 2
+                srcYOffset = page.meta['boxHeight']
+                dstXOffset = dstPage.meta['boxWidth'] / 2
                 
                 
                 painter.drawLine(p1['x'] + srcXOffset, p1['y'] + srcYOffset,
@@ -97,11 +87,11 @@ class Workspace(QtGui.QWidget):
 
         # draw boxes
         #
-        for pageTitle, pageInfo in self.story['pages'].iteritems():
-            position = pageInfo['meta']['position']
+        for page in self.story.getPages():
+            position = page.meta['position']
 
-            boxWidth = pageInfo['meta']['boxWidth']
-            boxHeight = pageInfo['meta']['boxHeight']
+            boxWidth = page.meta['boxWidth']
+            boxHeight = page.meta['boxHeight']
 
             # draw shadow
             painter.setBrush(QtGui.QColor(20, 20, 20))
@@ -111,11 +101,11 @@ class Workspace(QtGui.QWidget):
                              boxHeight)
 
             highlightColor = None
-            if pageTitle == self._hoverPage and pageTitle == self._selectedPage:
+            if page is self._hoverPage and page is self._selectedPage:
                 highlightColor = QtCore.Qt.blue
-            elif pageTitle == self._selectedPage:
+            elif page is self._selectedPage:
                 highlightColor = QtCore.Qt.black
-            elif pageTitle == self._hoverPage:
+            elif page is self._hoverPage:
                 highlightColor = QtCore.Qt.green
 
             if highlightColor:
@@ -133,12 +123,9 @@ class Workspace(QtGui.QWidget):
                              boxWidth,
                              boxHeight)
 
-
-#            painter.fillRect(
-#                             QtCore.Qt.yellow)
             painter.drawText(position['x']+margin,
                              position['y']+titleHeight+margin,
-                             pageTitle)
+                             page.title)
 
         self._drawOverlay(painter)
 
@@ -172,7 +159,7 @@ class Workspace(QtGui.QWidget):
     def addPage(self, x, y):
         raise NotImplementedError()
 
-#        self.story['pages'].append({ 'title' : 'new page',
+#        self.story.pages.append({ 'title' : 'new page',
 #                                     'meta' : { 'position' : { 'x' : x, 'y' : y } },
 #                                     })
 #        self.update()
@@ -203,7 +190,7 @@ class Workspace(QtGui.QWidget):
         if self._activeButton == None:
             pass
         elif self._activeButton == 1:
-            position = self.story['pages'][self._selectedPage]['meta']['position']
+            position = self._selectedPage.meta['position']
             xDiff = event.pos().x() - self._mousePick.x()
             yDiff = event.pos().y() - self._mousePick.y()
             position['x'] = position['x'] + xDiff
@@ -217,55 +204,33 @@ class Workspace(QtGui.QWidget):
         if self._selectedPage:
             dialog = PageDialog(self, 
                                 title=self._selectedPage,
-                                info=self.story['pages'][self._selectedPage])
+                                info=self.story.pages[self._selectedPage])
             dialog.exec_()
 
         self.update()
 '''
 
     def _pageUnderMouse(self, pos):
-        for pageTitle,pageInfo in self.story['pages'].iteritems():
-            pagePos = pageInfo['meta']['position']
+        for page in self.story.getPages():
+            pagePos = page.meta['position']
 
             # skip unrendered pages
-            if 'boxWidth' not in pageInfo['meta']:
+            if 'boxWidth' not in page.meta:
                 continue
 
-            pageRect = QtCore.QRect(pageInfo['meta']['position']['x'],
-                                    pageInfo['meta']['position']['y'],
-                                    pageInfo['meta']['boxWidth'],
-                                    pageInfo['meta']['boxHeight'])
+            pageRect = QtCore.QRect(page.meta['position']['x'],
+                                    page.meta['position']['y'],
+                                    page.meta['boxWidth'],
+                                    page.meta['boxHeight'])
 
             if pageRect.contains(pos):
-                return pageTitle
+                return page
 
         return None
 
-    def _createPage(self, title, pos=None):
-        uniqueTitle = title
-        counter = 1
-        while uniqueTitle in self.story['pages']:
-            uniqueTitle = '%s_%i' % (title, counter)
-            counter += 1
-
-        self.story['pages'][uniqueTitle] = \
-            {
-                'image' : None,
-                'content' : 'This is the beginning of your story',
-                'options' : [],
-                'meta' : {}
-            }
-
-        if pos:
-            self.story['pages'][uniqueTitle]['meta']['position'] = \
-                {
-                    'x' : pos.x(),
-                    'y' : pos.y()
-                }
-
     def _setSelectedPage(self, page):
-        if page != self._selectedPage:
-            self.editor().updatePage(page)
+        if not page is self._selectedPage:
+            self.editor().setPage(page)
 
         self._selectedPage = page
         
