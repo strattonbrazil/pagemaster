@@ -8,6 +8,56 @@ class Story(object):
         self._startPage = None
         self._pages = collections.OrderedDict()
 
+    def setStartPage(self, page):
+        self._startPage = page
+
+    def fromJson(self, data):
+        self.title = data['title']
+        self.author = data['author']
+        self.illustrator = data['illustrator']
+        self._startPage = None
+
+        self._pages = collections.OrderedDict()
+        for pageData in data['pages']:
+            page = Page(pageData['id'])
+            page.title = pageData['title']
+            page.imagePath = pageData['image']
+            page.content = pageData['content']
+            for option in pageData['options']:
+                page.options.append({ 'text' : option[0],
+                                      'id' : option[1] })
+            page.meta = pageData['meta']
+            self._pages[page.id] = page
+
+        if data['start page']:
+            self._startPage = self.getPageById(data['start page'])
+
+    def toJson(self):
+        data = {}
+
+        data['title'] = self.title
+        data['author'] = self.author
+        data['illustrator'] = self.illustrator
+        if self._startPage:
+            data['start page'] = self._startPage.id
+
+        data['pages'] = []
+        for page in self.getPages():
+            options = []
+            for option in page.options:
+                options.append([option['text'], option['id']])
+
+            data['pages'].append({
+                'id'    : page.id,
+                'title' : page.title,
+                'image' : page.imagePath,
+                'content' : page.content,
+                'options' : options,
+                'meta' : page.meta
+            })
+
+        return data
+
     def getPageById(self, id):
         return self._pages[id]
 
@@ -20,7 +70,7 @@ class Story(object):
         while uniqueId in self._pages.keys():
             uniqueId += 1
 
-        page = Page()
+        page = Page(uniqueId)
         page.title = title
         self._pages[uniqueId] = page
 
@@ -32,9 +82,10 @@ class Story(object):
                 }
 
 class Page(object):
-    def __init__(self):
+    def __init__(self, id):
+        self.id = id
         self.title = '(no title)'
-        self.image = None
+        self.imagePath = None
         self.content = 'This is the beginning of your story'
         self.options = []
         self.meta = {}

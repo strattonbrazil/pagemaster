@@ -48,18 +48,22 @@ def getGoto(choice, dstPage):
 \\endgroup''' % (choice, dstPage)
 """ 
 
-def getGoto(choice, dstPage):
+def getGoto(choice, dstPageTitle):
     return '''
 \\begin{flushright}
 \\leftskip6em
 \\textit{%s, goto page \\pageref{%s}.}
-\\end{flushright}''' % (choice, dstPage)
+\\end{flushright}''' % (choice, dstPageTitle)
 
 #            content += '\\hfill \n\n' % (choice, dstPage)    
 
+pagesById = {}
+for page in story['pages']:
+    pagesById[page['id']] = page
+
 content = ''
 for page in story['pages']:
-    if page['title'] != story['start page']:
+    if page['id'] != story['start page']:
         content += '\\newpage\n'
     pageTitles.append(page['title'])
     content += '\n\\label{%s}\n' % page['title']
@@ -67,13 +71,13 @@ for page in story['pages']:
     if 'imageFirst' not in page:
         page['imageFirst'] = True
 
-    if 'image' in page and page['imageFirst']:
+    if 'image' in page and page['image'] and page['imageFirst']:
         content += getGraphic(page['image'])
 
     content += '%s\n\n' % page['content']
     content += '\\vspace{1 em}\n'
     
-    if 'image' in page and not page['imageFirst']:
+    if 'image' in page and page['image'] and not page['imageFirst']:
         content += getGraphic(page['image'])
 
     if 'options' in page and page['options']: # if not story-ender
@@ -82,10 +86,12 @@ for page in story['pages']:
 
         content += getHorizontalLine()
         for i,option in enumerate(page['options']):
-            choice, dstPage = option
-            pageRefs[dstPage].append(page['title'])
+            choice, dstPageId = option
+            pageRefs[dstPageId].append(page['title'])
 
-            content += getGoto(choice, dstPage)
+            dstPageTitle = pagesById[dstPageId]['title']
+
+            content += getGoto(choice, dstPageTitle)
 
             content += '\n'
 #            if i < len(page['options'])-1:

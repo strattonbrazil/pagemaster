@@ -1,4 +1,5 @@
-from PyQt4 import QtGui, QtCore, QtWebKit
+import os
+from PyQt4 import QtGui, QtCore, QtWebKit, uic
 
 from optionsdialog import OptionsDialog
 
@@ -9,61 +10,46 @@ class WorkspaceEditor(QtGui.QWidget):
 
         self._workspace = workspace
 
-        self.setLayout(QtGui.QVBoxLayout())
-        self._stack = QtGui.QStackedWidget()
-        self.layout().addWidget(self._stack)
+        scriptPath = os.path.dirname(os.path.realpath(__file__))
+        uic.loadUi(scriptPath + '/editor.ui', self)
 
-        self._labelWidget = QtGui.QLabel("Select a page to edit...")
-        self._stack.addWidget(self._labelWidget)
+        self.connect(self.titleButton, QtCore.SIGNAL("released()"), self.updateTitle)
+        self.connect(self.imageButton, QtCore.SIGNAL("released()"), self.updateImage)
+        self.connect(self.addOptionButton, QtCore.SIGNAL("released()"), self.addOption)
+        self.connect(self.contentArea, QtCore.SIGNAL("textChanged()"), self.updateContent)
 
-        self._pageEditWidget = QtGui.QWidget()
-        self._stack.addWidget(self._pageEditWidget)
-        pageEditLayout = QtGui.QVBoxLayout()
-        self._pageEditWidget.setLayout(pageEditLayout)
-
-        self._titleButton = QtGui.QPushButton()
-        self._imageButton = QtGui.QPushButton(WorkspaceEditor.NO_IMAGE_TEXT)
-        self._textArea = QtGui.QTextEdit()
-        self._optionsBox = QtGui.QWidget()
-        self._addOptionButton = QtGui.QPushButton('Add Option')
-
-        self.connect(self._titleButton, QtCore.SIGNAL("released()"), self.updateTitle)
-        self.connect(self._imageButton, QtCore.SIGNAL("released()"), self.updateImage)
-        self.connect(self._addOptionButton, QtCore.SIGNAL("released()"), self.addOption)
-        self.connect(self._textArea, QtCore.SIGNAL("textChanged()"), self.updateContent)
-
-        pageEditLayout.addWidget(self._titleButton)
-        pageEditLayout.addWidget(self._imageButton)
-
-        pageEditLayout.addWidget(QtGui.QLabel('Text'))
-        pageEditLayout.addWidget(self._textArea)
-
-        pageEditLayout.addWidget(QtGui.QLabel('Options'))
-        pageEditLayout.addWidget(self._optionsBox)
-
-        pageEditLayout.addWidget(self._addOptionButton)
-
-    def setPage(self, pageId, page):
+    def setPage(self, page):
         self._currentPage = page
 
         if page is None:
-            self._stack.setCurrentWidget(self._labelWidget)
+            self.stack.setCurrentWidget(self.labelWidget)
             return
 
-        content = page.content
+        self.titleButton.setText('Title: ' + page.title)
+        self.contentArea.setText(page.content)
 
-        self._titleButton.setText('Title: ' + title)
-        self._textArea.setText(content)
+        self.addOptionButton.setEnabled(len(self._eligibleOptions()) > 0)
 
-        self._addOptionButton.setEnabled(len(self._eligibleOptions()) > 0)
+        self._updateOptionsBox()
 
-        self._stack.setCurrentWidget(self._pageEditWidget)
+    def _updateOptionsBox(self):
+        # clear previous items
+        layout = self.optionsBox.layout()
+        while layout.count() > 0:
+            item = layout.takeAt(0)
+            item.widget().deleteLater()
 
-    def _parseTitle(self):
-        return str(self._titleButton.text().replace('Title: ', ''))
+        for option in self._currentPage.options:
+            optionButton = QtGui.QPushButton(option['text'], self)
+            def foo():
+                print('nope')
+            self.connect(optionButton, QtCore.SIGNAL("released()"), foo)
+            self.optionsBox.layout().addWidget(optionButton)
+
+        self.stack.setCurrentWidget(self.pageEditWidget)
 
     def updateTitle(self):
-        title = self._parseTitle()
+        title = self._currentPage.title
 
         dialog = QtGui.QInputDialog()
         dialog.setWindowTitle('Update Title')
@@ -76,51 +62,56 @@ class WorkspaceEditor(QtGui.QWidget):
         if updateTitle == '':
             return
 
-        for title in self._workspace.story.pages:
-            if updateTitle == title:
-                print('page with that name already exists')
-                return
+        self.titleButton.setText('Title: ' + updateTitle)
 
-        pageInfo = self._workspace.story.pages.pop(title)
-        self._workspace.story.pages[updateTitle] = pageInfo
+        self._currentPage.title = updateTitle
         
         self._workspace.update()
 
     def updateImage(self):
-        print('update image')
+        imagePath = QtGui.QFileDialog.getOpenFileName(self)
+        if imagePath:
+            self._currentPage.imagePath = imagePath
+
+        self._workspace.update()
 
     def updateContent(self):
-        title = self._parseTitle()
-        self._currentPage.content = self._textArea.toPlainText()
+        self._currentPage.content = str(self.contentArea.toPlainText())
 
-    def addOption(self):
-        options = {}
-        for option in self._eligibleOptions():
-            options[option] = {}
+    def addOption(self, dstPage=None):
+        # add option to the provide page
+        if dstPage:
+            optionText, success = QtGui.QInputDialog.getText(self, 'Option Text', 'Enter the option text to the next page')
+            if success:
+                self._currentPage.options.append(
+                    { 'text' : str(optionText),
+                      'id' : dstPage.id })
+        else:
+            options = {}
+            for option in self._eligibleOptions():
+                options[option] = {}
 
-        dialog = OptionsDialog(self, options)
-        if dialog.exec_(): # TODO: check against enum
-            title = self._parseTitle()
-            optionTitle = dialog.option()
-            workspace = self._workspace
+            dialog = OptionsDialog(self, options)
+            if dialog.exec_(): # TODO: check against enum
+                optionTitle = dialog.option()
+                workspace = self._workspace
 
-            self._currentPage.options.append(
-                { 'text' : 'text to go to',
-                  'title' : optionTitle })
+                self._currentPage.options.append(
+                    { 'text' : 'text to go to',
+                      'id' : optionTitle })
         
+        self._updateOptionsBox()
 
     def _eligibleOptions(self): # return list of eligible pages
-        title = self._parseTitle()
-
         options = []
 
-        currentOptions = self._workspace.story.pages[title].options
-        for otherTitle in self._workspace.story.pages:
-            if otherTitle != title:
-                for text,optionTitle in currentOptions:
-                    if optionTitle == otherTitle:
+        currentOptions = self._currentPage.options
+        for page in self._workspace.story.getPages():
+            if page.id != self._currentPage.id:
+                for text, pageId in currentOptions:
+                    if page.id == pageId:
                         break
                 else:
-                    options.append(otherTitle)
+                    options.append(page.id)
 
         return options
