@@ -1,7 +1,11 @@
 #!/usr/bin/python
 import sys, os, json, tempfile, subprocess, time
 from collections import defaultdict
-from pyPdf import PdfFileWriter
+import weasyprint
+
+#from reportlab.pdfgen import canvas
+#from reportlab.lib.pagesizes import letter
+#from reportlab.platypus import Image
 
 if len(sys.argv) < 2:
     print('usage: toPdf.py title.story.json')
@@ -11,144 +15,71 @@ if len(sys.argv) < 2:
 #
 story = json.load(open(sys.argv[1], 'r'))
 
-print(story)
+#c = canvas.Canvas('/tmp/reportlab_test.pdf')
+#c.drawCentredString(415, 500, "Something here")
+#c.showPage()
+#c.save()
 
-# write everything to latex
-latexFile = tempfile.NamedTemporaryFile('w+', suffix='.tex', delete=False)
-print("""
-***********************************
-* latex file: %s
-***********************************
-""" % latexFile.name)
-
-pageTitles = []
-pageRefs = defaultdict(list)
-
-def getGraphic(imgPath):
-    imgPath = os.path.abspath(imgPath)
-    print(imgPath)
-    return '\\includegraphics[width=\\textwidth,height=\\textheight,keepaspectratio]{%s}\n\n' % imgPath
-
-def getHorizontalLine():
-    return '''
-\\vskip\\medskipamount % or other desired dimension
-\\leaders\\vrule width \\textwidth\\vskip0.4pt % or other desired thickness
-\\vskip\\medskipamount % ditto
-\\nointerlineskip
-'''
-
-"""
-def getGoto(choice, dstPage):
-    return '''
-\\begingroup
-%\\leftskip4em
-%\\rightskip\\leftskip
-\\textit{%s, goto page \\pageref{%s}.}
-%\\par
-\\endgroup''' % (choice, dstPage)
-""" 
-
-def getGoto(choice, dstPageTitle):
-    return '''
-\\begin{flushright}
-\\leftskip6em
-\\textit{%s, goto page \\pageref{%s}.}
-\\end{flushright}''' % (choice, dstPageTitle)
-
-#            content += '\\hfill \n\n' % (choice, dstPage)    
+#subprocess.call(['evince', '/tmp/reportlab_test.pdf'])
+#print(story)
 
 pagesById = {}
 for page in story['pages']:
     pagesById[page['id']] = page
 
-content = ''
-for page in story['pages']:
-    if page['id'] != story['start page']:
-        content += '\\newpage\n'
-    pageTitles.append(page['title'])
-    content += '\n\\label{%s}\n' % page['title']
+def genHtml(pageIndexBySection={}):
+    content = ''
+    html = ''
+    for page in story['pages']:
+        html += '<div style="page-break-after: always">'
 
-    if 'imageFirst' not in page:
-        page['imageFirst'] = True
+        # add title and content
+        html += '<h1 id="section%i">%s</h1>' % (page['id'], page['title'])
+        html += '<p>%s</p>' % (page['content']*3)
 
-    if 'image' in page and page['image'] and page['imageFirst']:
-        content += getGraphic(page['image'])
+        # add options
+        if 'options' in page:
+            for choice, dstPageId in page['options']:
+                dstPageSectionId = 'section%i' % dstPageId
+                if dstPageSectionId in pageIndexBySection:
+                    dstPageNum = pageIndexBySection[dstPageSectionId] + 1
+                else:
+                    dstPageNum = 'X X' # placeholder for spacing
+                html += '<p>choose to %s, go to page %s</p>' % (choice, dstPageNum)
 
-    content += '%s\n\n' % page['content']
-    content += '\\vspace{1 em}\n'
-    
-    if 'image' in page and page['image'] and not page['imageFirst']:
-        content += getGraphic(page['image'])
+        html += '</div>'
 
-    if 'options' in page and page['options']: # if not story-ender
-        content += '\\null\n'
-        content += '\\vfill\n'
+    return html
 
-        content += getHorizontalLine()
-        for i,option in enumerate(page['options']):
-            choice, dstPageId = option
-            pageRefs[dstPageId].append(page['title'])
+mainCssPath = os.path.dirname(os.path.realpath(__file__)) + '/style.css'
 
-            dstPageTitle = pagesById[dstPageId]['title']
+# build the html with dummy page references
+htmlNoLinks = genHtml()
+docNoLinks = weasyprint.HTML(string=htmlNoLinks)
+weasyNoLinks = docNoLinks.render()
+docNoLinks.write_pdf('/tmp/placeholders.pdf', stylesheets=[mainCssPath])
 
-            content += getGoto(choice, dstPageTitle)
+# map sections to pages
+pageIndexBySection = {}
+for pageIndex,page in enumerate(weasyNoLinks.pages):
+    assert(len(page.anchors) < 2)
 
-            content += '\n'
-#            if i < len(page['options'])-1:
-#                content += '\\vspace{1 em}\n'
-    else:
-        content += '''
-\\centerline{ \\bf{ The End } }
-'''
+    if len(page.anchors) is 1:
+        sectionId = page.anchors.keys()[0]
+        pageIndexBySection[sectionId] = pageIndex
 
+# rebuild the html
+htmlWithLinks = genHtml(pageIndexBySection)
+docWithLinks = weasyprint.HTML(string=htmlWithLinks)
+docWithLinks.write_pdf('/tmp/test.pdf', stylesheets=[mainCssPath])
 
-for title in pageTitles:
-    if title not in pageRefs and title != story['start page']:
-        print('* warning: `%s` page is never referenced' % title)
-for ref in pageRefs:
-    if ref not in pageTitles:
-        for title in pageRefs[ref]:
-            print('* warning: `%s` page is referenced by `%s`, but never defined' % (ref, title))
-print('\n...done building latex file\n')
+# verify the pages match after swapping out placeholders
+for pageIndex,page in enumerate(docWithLinks.render().pages):
+    assert(len(page.anchors) < 2)
 
-latexFile.write(r"""
-\documentclass[twoside]{book}
-\usepackage{fancyhdr}
-\usepackage[margin=.5in, paperwidth=5in, paperheight=8in]{geometry}
-\usepackage{lipsum}
-\usepackage{graphicx}
+    if len(page.anchors) is 1:
+        sectionId = page.anchors.keys()[0]
+        assert pageIndexBySection[sectionId] is pageIndex, 'placeholder swap changed page layout: %s' % sectionId
 
-\setlength{\headheight}{3em}
+subprocess.call(['evince', '/tmp/test.pdf'])
 
-\fancyhf{}
-\renewcommand{\headrulewidth}{0pt}
-\fancyhead[LE]{}
-\fancyhead[RE]{\bf{\LARGE{\thepage}}}
-\fancyhead[LO]{}
-\fancyhead[RO]{\bf{\LARGE{\thepage}}}
-\pagestyle{fancy}
-
-\title{%(title)s}
-
-\begin{document}
-\maketitle
-\newpage
-  %(content)s
-\end{document}
-""" % { 'title' : story['title'], 'content' : content })
-
-# convert to pdf
-#
-os.chdir(os.path.dirname(latexFile.name))
-latexFile.flush()
-
-# run twice to get correct page references
-subprocess.call(['pdflatex', latexFile.name])
-subprocess.call(['pdflatex', latexFile.name])
-latexFile.close()
-
-print('created pdf: %s' % (latexFile.name.replace('.tex', '.pdf')))
-subprocess.call(['evince', latexFile.name.replace('.tex', '.pdf')])
-
-
-# update pdf with page numbers

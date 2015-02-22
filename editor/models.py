@@ -1,3 +1,4 @@
+import itertools
 import collections
 
 class Story(object):
@@ -57,6 +58,14 @@ class Story(object):
             })
 
         return data
+
+    def getUniquePageId(self):
+        for id in itertools.count():
+            if id not in self._pages.keys():
+                return id
+
+    def addPage(self, page):
+        self._pages[page.id] = page
 
     def getPageById(self, id):
         return self._pages[id]

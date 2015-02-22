@@ -1,0 +1,15 @@
+@page :left { /* left page setup */
+  @bottom-left { /* verso running footer */
+    content: counter(page);
+  }
+}
+
+@page :right { /* right page setup */
+  @bottom-right { /* recto running footer */
+    content: counter(page);
+  }
+}
+
+a.xref:after {
+  content: " (page " target-counter(attr(href url), page) ")";
+}

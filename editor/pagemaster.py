@@ -171,15 +171,19 @@ class Workspace(QtGui.QWidget):
             action = menu.exec_(self.mapToGlobal(event.pos()))
             if action is setStartPageAction:
                 self.story.setStartPage(self._hoverPage)
-                print('set hover page as start page')
         else:
             addPageAction = menu.addAction('Add page')
             action = menu.exec_(self.mapToGlobal(event.pos()))
             if action is addPageAction:
-                self._createPage('new page', event.pos())
+                self.addPage(event.pos().x(), event.pos().y())
 
     def addPage(self, x, y):
-        raise NotImplementedError()
+        page = Page(self.story.getUniquePageId())
+        self.story.addPage(page)
+
+        page.meta['position'] = { 'x' : x, 'y' : y }
+
+        self._setSelectedPage(page)
 
 #        self.story.pages.append({ 'title' : 'new page',
 #                                     'meta' : { 'position' : { 'x' : x, 'y' : y } },
