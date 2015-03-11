@@ -77,6 +77,13 @@ class Workspace(QtGui.QWidget):
                              80,
                              80)
 
+            if self._hoverPage.imagePath:
+                image = QtGui.QImage(self._hoverPage.imagePath)
+                target = QtCore.QRectF(boxPos['x'] + 10, 
+                                       boxPos['y'] + self._hoverPage.meta['boxHeight'] + 20,
+                                       60, 60)
+                painter.drawImage(target, image)
+
         # draw option lines
         #
         for page in self.story.getPages():
@@ -313,6 +320,9 @@ class AppWindow(QtGui.QMainWindow):
         self.fileMenu.addAction('Open Story...', workspace.openFile, QtGui.QKeySequence("Ctrl+O"))
         self.fileMenu.addAction('Save Story...', workspace.saveFile, QtGui.QKeySequence("Ctrl+S"))
         self.fileMenu.addAction('Save Story As...', workspace.saveFileAs)
+
+QtCore.QCoreApplication.setOrganizationName('Night Carnival')
+QtCore.QCoreApplication.setApplicationName('Pagemaster')
 
 app = QtGui.QApplication(sys.argv)
 window = AppWindow()

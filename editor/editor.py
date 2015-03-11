@@ -1,5 +1,6 @@
 import os
 from PyQt4 import QtGui, QtCore, QtWebKit, uic
+from functools import partial
 
 from optionsdialog import OptionsDialog
 
@@ -27,6 +28,7 @@ class WorkspaceEditor(QtGui.QWidget):
 
         self.titleButton.setText('Title: ' + page.title)
         self.contentArea.setText(page.content)
+        self.setImage(page.imagePath)
 
         self.addOptionButton.setEnabled(len(self._eligibleOptions()) > 0)
 
@@ -39,12 +41,27 @@ class WorkspaceEditor(QtGui.QWidget):
             item = layout.takeAt(0)
             item.widget().deleteLater()
 
-        for option in self._currentPage.options:
-            optionButton = QtGui.QPushButton(option['text'], self)
-            def foo():
-                print('nope')
-            self.connect(optionButton, QtCore.SIGNAL("released()"), foo)
-            self.optionsBox.layout().addWidget(optionButton)
+        for i,option in enumerate(self._currentPage.options):
+            optionBlock = OptionBlock(self, option['text'])
+
+            def updateCallback(optionBlock):
+                dialog = QtGui.QInputDialog()
+                dialog.setWindowTitle('Update Option Text')
+                dialog.setTextValue(optionBlock.optionButton.text())
+                if not dialog.exec_(): # TODO: check against enum
+                    return
+
+                self._currentPage.options[i]['text'] = dialog.textValue()
+                optionBlock.optionButton.setText(dialog.textValue())
+
+            def deleteCallback(i):
+                del self._currentPage.options[i]
+                self._updateOptionsBox()
+
+            optionBlock.setUpdateCallback(partial(updateCallback, optionBlock))
+            optionBlock.setDeleteCallback(partial(deleteCallback, i))
+
+            self.optionsBox.layout().addWidget(optionBlock)
 
         self.stack.setCurrentWidget(self.pageEditWidget)
 
@@ -69,11 +86,26 @@ class WorkspaceEditor(QtGui.QWidget):
         self._workspace.update()
 
     def updateImage(self):
-        imagePath = QtGui.QFileDialog.getOpenFileName(self)
-        if imagePath:
-            self._currentPage.imagePath = imagePath
+        settings = QtCore.QSettings()
+        lastImageDir = settings.value('lastUploadImageDir').toString()
 
-        self._workspace.update()
+        imagePath = QtGui.QFileDialog.getOpenFileName(self, 'Select image file', lastImageDir, "Images (*.png *.jpg")
+        if imagePath:
+            self._currentPage.imagePath = str(imagePath)
+            self.setImage(imagePath)
+
+            settings.setValue('lastUploadImageDir', QtCore.QFileInfo(imagePath).canonicalPath())
+
+    def setImage(self, imagePath):
+        if imagePath:
+            icon = QtGui.QIcon(imagePath)
+            self.imageButton.setIcon(icon)
+            self.imageButton.setIconSize(QtCore.QSize(256,256))
+
+            self.imageButton.setText('')
+        else:
+            self.imageButton.setIcon(QtGui.QIcon())
+            self.imageButton.setText('Select Image')
 
     def updateContent(self):
         self._currentPage.content = str(self.contentArea.toPlainText())
@@ -115,3 +147,18 @@ class WorkspaceEditor(QtGui.QWidget):
                     options.append(page.id)
 
         return options
+
+class OptionBlock(QtGui.QWidget):
+    def __init__(self, parent, text):
+        super(OptionBlock, self).__init__(parent)
+
+        scriptPath = os.path.dirname(os.path.realpath(__file__))
+        uic.loadUi(scriptPath + '/option_block.ui', self)
+
+        self.optionButton.setText(text)
+
+    def setUpdateCallback(self, callback):
+        self.connect(self.optionButton, QtCore.SIGNAL("released()"), callback)
+
+    def setDeleteCallback(self, callback):
+        self.connect(self.deleteButton, QtCore.SIGNAL("released()"), callback)

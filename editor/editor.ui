@@ -16,6 +16,9 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QStackedWidget" name="stack">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
      <widget class="QWidget" name="labelWidget">
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
@@ -35,14 +38,14 @@
        <item>
         <widget class="QPushButton" name="titleButton">
          <property name="text">
-          <string>PushButton</string>
+          <string>Titile:</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="imageButton">
          <property name="text">
-          <string>PushButton</string>
+          <string>Select Image</string>
          </property>
         </widget>
        </item>
@@ -60,7 +63,7 @@
        <item>
         <widget class="QPushButton" name="addOptionButton">
          <property name="text">
-          <string>PushButton</string>
+          <string>Add Option</string>
          </property>
         </widget>
        </item>

@@ -23,12 +23,14 @@ For an entire example story file see _assets/story.json_.
 
 ### toPdf.py
 
-_toPdf.py_ is currently the only functional tool.  Run it on the json file to get an output pdf.  It requires all the images to be in the local directory.  It requires _pdflatex_ to be installed on the path.  
+_toPdf.py_ is currently the only functional tool.  Run it on the json file to get an output pdf.  
 
 ex. ./toPdf.py story.json
 
-### TODO
+### EDITOR TODO
 
-#### pdflatex
-* add support for images
-* add support for markup
+* add ability to remove images after being set
+
+### SCRIPT TODO
+
+* fix placement of options footer to always be at the bottom of the screen

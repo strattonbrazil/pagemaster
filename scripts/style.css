@@ -10,6 +10,33 @@
   }
 }
 
+p {
+  text-align: justify;
+}
+
 a.xref:after {
   content: " (page " target-counter(attr(href url), page) ")";
+}
+
+.section-image-ctn {
+  text-align: center;
+}
+
+.section-image {
+  width: 80%;
+}
+
+.end-block {
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.options-block {
+  border-top: solid 1px;
+  text-align: right;
+}
+
+.option-text {
+  font-style: italic;
 }
