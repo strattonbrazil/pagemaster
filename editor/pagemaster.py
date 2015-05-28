@@ -17,6 +17,7 @@ class Workspace(QtGui.QWidget):
         super(Workspace, self).__init__()
         self.setMouseTracking(True)
 
+        self._recentFileName = None
         self._mode = None
         self._selectedPage = None
         self._hoverPage = None
@@ -40,13 +41,14 @@ class Workspace(QtGui.QWidget):
 
         painter.fillRect(0, 0, self.width(), self.height(), QtCore.Qt.darkGray)
 
+        fm = QtGui.QFontMetrics(painter.font())
+
         # calculate positions
         #
         for page in self.story.getPages():
             if 'position' not in page.meta:
                 page.meta['position'] = { 'x' : 50, 'y' : 50 }
 
-            fm = QtGui.QFontMetrics(painter.font())
             titleWidth = fm.width(page.title)
             titleHeight = fm.height()
 
@@ -79,10 +81,13 @@ class Workspace(QtGui.QWidget):
 
             if self._hoverPage.imagePath:
                 image = QtGui.QImage(self._hoverPage.imagePath)
+                filteredImage = image.scaled(60, 60, 
+                                             QtCore.Qt.IgnoreAspectRatio,
+                                             QtCore.Qt.SmoothTransformation)
                 target = QtCore.QRectF(boxPos['x'] + 10, 
                                        boxPos['y'] + self._hoverPage.meta['boxHeight'] + 20,
                                        60, 60)
-                painter.drawImage(target, image)
+                painter.drawImage(target, filteredImage)
 
         # draw option lines
         #
@@ -90,19 +95,36 @@ class Workspace(QtGui.QWidget):
             for option in page.options:
                 dstPage = self.story.getPageById(option['id'])
 
-                p1 = page.meta['position']
-                p2 = dstPage.meta['position']
+                boxP1 = page.meta['position']
+                boxP2 = dstPage.meta['position']
 
                 srcXOffset = page.meta['boxWidth'] / 2
                 srcYOffset = page.meta['boxHeight']
-                dstXOffset = dstPage.meta['boxWidth'] / 2
+                dstXOffset = dstPage.meta['boxWidth'] / 2                
                 
-                
-                painter.drawLine(p1['x'] + srcXOffset, p1['y'] + srcYOffset,
-                                 p2['x'] + dstXOffset, p2['y'])
+                p1 = (boxP1['x'] + srcXOffset, boxP1['y'] + srcYOffset)
+                p2 = (boxP2['x'] + dstXOffset, boxP2['y'])
+
+                painter.drawLine(p1[0], p1[1], p2[0], p2[1])
+
+                midLineP = ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
+
+                boxPadding = 5
+                stringWidth = fm.width(option['text'])
+                stringOffset = stringWidth / 2
+                stringHeight = fm.height()
+
+                # draw text background
+                #painter.setBrush(QtGui.QColor(220, 220, 220, 60))
+                painter.fillRect(midLineP[0]-stringOffset-boxPadding, midLineP[1]-stringHeight,
+                                 stringWidth+boxPadding*2, stringHeight,
+                                 QtGui.QColor(220, 220, 220, 60))
+
+                painter.drawText(midLineP[0]-stringOffset, midLineP[1], 
+                                 option['text'])
 
 
-        # draw boxes
+        # draw page boxes
         #
         for page in self.story.getPages():
             position = page.meta['position']
@@ -289,7 +311,7 @@ class Workspace(QtGui.QWidget):
     def saveFile(self):
         if self._recentFileName:
             data = self.story.toJson()
-            with open(self._recentFileName) as fd:
+            with open(self._recentFileName, 'w') as fd:
                 json.dump(data, fd, indent=4)
         else:
             self.saveFileAs()
@@ -314,8 +336,8 @@ class AppWindow(QtGui.QMainWindow):
         workspace = Workspace()
 
         centralWidget = self.centralWidget()
-        centralWidget.layout().addWidget(workspace)
-        centralWidget.layout().addWidget(workspace.editor())
+        self.workspaceFrame.layout().addWidget(workspace)
+        self.editorFrame.layout().addWidget(workspace.editor())
 
         self.fileMenu.addAction('Open Story...', workspace.openFile, QtGui.QKeySequence("Ctrl+O"))
         self.fileMenu.addAction('Save Story...', workspace.saveFile, QtGui.QKeySequence("Ctrl+S"))

@@ -29,8 +29,6 @@ ex. ./toPdf.py story.json
 
 ### EDITOR TODO
 
-* add ability to remove images after being set
-
 ### SCRIPT TODO
 
 * fix placement of options footer to always be at the bottom of the screen

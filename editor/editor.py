@@ -16,6 +16,7 @@ class WorkspaceEditor(QtGui.QWidget):
 
         self.connect(self.titleButton, QtCore.SIGNAL("released()"), self.updateTitle)
         self.connect(self.imageButton, QtCore.SIGNAL("released()"), self.updateImage)
+        self.connect(self.removeImageButton, QtCore.SIGNAL("released()"), self.removeImage)
         self.connect(self.addOptionButton, QtCore.SIGNAL("released()"), self.addOption)
         self.connect(self.contentArea, QtCore.SIGNAL("textChanged()"), self.updateContent)
 
@@ -51,7 +52,7 @@ class WorkspaceEditor(QtGui.QWidget):
                 if not dialog.exec_(): # TODO: check against enum
                     return
 
-                self._currentPage.options[i]['text'] = dialog.textValue()
+                self._currentPage.options[i]['text'] = unicode(dialog.textValue())
                 optionBlock.optionButton.setText(dialog.textValue())
 
             def deleteCallback(i):
@@ -96,6 +97,10 @@ class WorkspaceEditor(QtGui.QWidget):
 
             settings.setValue('lastUploadImageDir', QtCore.QFileInfo(imagePath).canonicalPath())
 
+    def removeImage(self):
+        self._currentPage.imagePath = ''
+        self.setImage(None)
+
     def setImage(self, imagePath):
         if imagePath:
             icon = QtGui.QIcon(imagePath)
@@ -103,12 +108,14 @@ class WorkspaceEditor(QtGui.QWidget):
             self.imageButton.setIconSize(QtCore.QSize(256,256))
 
             self.imageButton.setText('')
+            self.removeImageButton.show()
         else:
             self.imageButton.setIcon(QtGui.QIcon())
             self.imageButton.setText('Select Image')
+            self.removeImageButton.hide()
 
     def updateContent(self):
-        self._currentPage.content = str(self.contentArea.toPlainText())
+        self._currentPage.content = unicode(self.contentArea.toPlainText())
 
     def addOption(self, dstPage=None):
         # add option to the provide page
