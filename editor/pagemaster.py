@@ -10,181 +10,122 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 from pagedialog import PageDialog
 from editor import WorkspaceEditor
-from models import Story, Page
+#from models import Story, Page
 
-class Workspace(QtGui.QWidget):
+class Page(QtGui.QGraphicsRectItem):#ItemGroup): #RectItem):
+    def __init__(self, x, y):
+        super(Page, self).__init__(0, 0, 80, 20)
+
+        self._children = []
+
+        self.setFlag(QtGui.QGraphicsItem.ItemIsMovable, True)
+
+        self.setPos(x, y)
+
+        self._textItem = QtGui.QGraphicsTextItem(self)
+
+        self.setTitle('hello')
+
+    def paint(self, painter, option, widget):
+        super(Page, self).paint(painter, option, widget)
+
+    def setTitle(self, title):
+        self._textItem.setPlainText(title)
+
+        self.setRect(self._textItem.boundingRect())
+
+    def addOption(self, toPage):
+        fromPage = self
+        option = Option(fromPage, toPage)
+
+        self._children.append(toPage)
+
+        return option
+
+class Option(QtGui.QGraphicsLineItem):
+    def __init__(self, page1, page2):
+        super(Option, self).__init__()
+        self._from = page1
+        self._to = page2
+
+        #self.setParentItem(page1)
+
+        self.updatePosition()
+
+    def updatePosition(self):
+        if self._from is None or self._to is None:
+            return
+
+        r1 = self._from.boundingRect()
+        r2 = self._to.boundingRect()
+
+        # take page position into account
+        r1.moveTo(self._from.scenePos())
+        r2.moveTo(self._to.scenePos())
+
+        # bottom of "from"
+        p1 = QtCore.QPointF(r1.x() + r1.width() * 0.5, r1.y() + r1.height())
+
+        # top of "to"
+        p2 = QtCore.QPointF(r2.x() + r2.width() * 0.5, r2.y())
+
+        self.setLine(p1.x(), p1.y(), p2.x(), p2.y())
+
+class Workspace(QtGui.QGraphicsView):
     def __init__(self):
         super(Workspace, self).__init__()
-        self.setMouseTracking(True)
+        #self.setMouseTracking(True)
 
-        self._recentFileName = None
+        self._scene = QtGui.QGraphicsScene(self)
+        self.setScene(self._scene)
+
+        self.pages = []
+
+        page1 = Page(0, 0)
+        self._scene.addItem(page1)
+
+        page2 = Page(100, 100)
+        self._scene.addItem(page2)
+
+        page3 = Page(100, 0)
+        self._scene.addItem(page3)
+
+        option = page1.addOption(page2)
+        self._scene.addItem(option)
+
+        option = page1.addOption(page3)
+        self._scene.addItem(option)
+
         self._mode = None
         self._selectedPage = None
         self._hoverPage = None
         self._activeButton = None
         self._editor = None
 
-        self.story = Story()
+        #self.story = Story()
 
-        self.story.createPage('first page')
-        self.story.createPage('second page', QtCore.QPoint(100, 100))
-        self.story.createPage('third page', QtCore.QPoint(200, 200))
-        self.story.createPage('fourth page', QtCore.QPoint(300, 300))
+        #self.story.createPage('first page')
+        #self.story.createPage('second page', QtCore.QPoint(100, 100))
+        #self.story.createPage('third page', QtCore.QPoint(200, 200))
+        #self.story.createPage('fourth page', QtCore.QPoint(300, 300))
 
     def editor(self):
         if not self._editor:
             self._editor = WorkspaceEditor(self)
         return self._editor
 
-    def paintEvent(self, event):
-        painter = QtGui.QPainter(self)
+    #def paintEvent(self, event):
 
-        painter.fillRect(0, 0, self.width(), self.height(), QtCore.Qt.darkGray)
+        # call the parent code to draw scene
+        #super(Workspace, self).paintEvent(event)
 
-        fm = QtGui.QFontMetrics(painter.font())
+        # do a bit more of my own thing
+        #print('repainting')
 
-        # calculate positions
-        #
-        for page in self.story.getPages():
-            if 'position' not in page.meta:
-                page.meta['position'] = { 'x' : 50, 'y' : 50 }
-
-            titleWidth = fm.width(page.title)
-            titleHeight = fm.height()
-
-            margin = 10
-
-            boxWidth = titleWidth+margin*2
-            boxHeight = titleHeight+margin*2
-
-            # save off for picking
-            page.meta['boxWidth'] = boxWidth
-            page.meta['boxHeight'] = boxHeight
-
-        if self._mode == 'ADD_OPTION':
-            boxPos = self._selectedPage.meta['position']
-            cursorPos = self.mapFromGlobal(QtGui.QCursor.pos())
-            painter.setBrush(QtGui.QColor(220, 220, 0))
-            painter.drawLine(boxPos['x'], boxPos['y'], 
-                             cursorPos.x(), cursorPos.y())
-
-        # draw hover info
-        #
-        if self._hoverPage:
-            boxPos = self._hoverPage.meta['position']
-            
-            painter.setBrush(QtGui.QColor(220, 220, 220))
-            painter.drawRect(boxPos['x'],
-                             boxPos['y'] + self._hoverPage.meta['boxHeight'] + 10,
-                             80,
-                             80)
-
-            if self._hoverPage.imagePath:
-                image = QtGui.QImage(self._hoverPage.imagePath)
-                filteredImage = image.scaled(60, 60, 
-                                             QtCore.Qt.IgnoreAspectRatio,
-                                             QtCore.Qt.SmoothTransformation)
-                target = QtCore.QRectF(boxPos['x'] + 10, 
-                                       boxPos['y'] + self._hoverPage.meta['boxHeight'] + 20,
-                                       60, 60)
-                painter.drawImage(target, filteredImage)
-
-        # draw option lines
-        #
-        for page in self.story.getPages():
-            for option in page.options:
-                dstPage = self.story.getPageById(option['id'])
-
-                boxP1 = page.meta['position']
-                boxP2 = dstPage.meta['position']
-
-                srcXOffset = page.meta['boxWidth'] / 2
-                srcYOffset = page.meta['boxHeight']
-                dstXOffset = dstPage.meta['boxWidth'] / 2                
-                
-                p1 = (boxP1['x'] + srcXOffset, boxP1['y'] + srcYOffset)
-                p2 = (boxP2['x'] + dstXOffset, boxP2['y'])
-
-                painter.drawLine(p1[0], p1[1], p2[0], p2[1])
-
-                midLineP = ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
-
-                boxPadding = 5
-                stringWidth = fm.width(option['text'])
-                stringOffset = stringWidth / 2
-                stringHeight = fm.height()
-
-                # draw text background
-                #painter.setBrush(QtGui.QColor(220, 220, 220, 60))
-                painter.fillRect(midLineP[0]-stringOffset-boxPadding, midLineP[1]-stringHeight,
-                                 stringWidth+boxPadding*2, stringHeight,
-                                 QtGui.QColor(220, 220, 220, 60))
-
-                painter.drawText(midLineP[0]-stringOffset, midLineP[1], 
-                                 option['text'])
+        #super(Workspace, 
+        #painter = QtGui.QPainter(self)
 
 
-        # draw page boxes
-        #
-        for page in self.story.getPages():
-            position = page.meta['position']
-
-            boxWidth = page.meta['boxWidth']
-            boxHeight = page.meta['boxHeight']
-
-            # draw shadow
-            painter.setBrush(QtGui.QColor(20, 20, 20))
-            painter.drawRect(position['x'] + 3,
-                             position['y'] + 3,
-                             boxWidth,
-                             boxHeight)
-
-            highlightColor = None
-            if page is self._hoverPage and page is self._selectedPage:
-                highlightColor = QtCore.Qt.blue
-            elif page is self._selectedPage:
-                highlightColor = QtCore.Qt.black
-            elif page is self._hoverPage:
-                highlightColor = QtCore.Qt.green
-
-            if highlightColor:
-                prehighlightMargin = 6
-                painter.setBrush(highlightColor)
-                painter.drawRoundedRect(position['x']-prehighlightMargin,
-                                        position['y']-prehighlightMargin,
-                                        boxWidth+prehighlightMargin*2,
-                                        boxHeight+prehighlightMargin*2,
-                                        margin, margin)
-
-            painter.setBrush(QtCore.Qt.white)
-            painter.drawRect(position['x'],
-                             position['y'],
-                             boxWidth,
-                             boxHeight)
-
-            painter.drawText(position['x']+margin,
-                             position['y']+titleHeight+margin,
-                             page.title)
-
-        if self._mode == 'BOX_SELECT':
-            cursorPos = self.mapFromGlobal(QtGui.QCursor.pos())
-
-            x = min(cursorPos.x(), self._mousePick.x())
-            y = min(cursorPos.y(), self._mousePick.y())
-            width = abs(cursorPos.x() - self._mousePick.x())
-            height = abs(cursorPos.y() - self._mousePick.y())
-
-            painter.setBrush(QtGui.QColor(255, 0, 255, 122))
-            painter.drawRect(x, y, width, height)
-
-        self._drawOverlay(painter)
-
-    def _drawOverlay(self, painter):
-        pass
-
-        # gather all nodes to find range
-
-        # render each node
 
     def sizeHint(self):
         return QtCore.QSize(800, 600)
@@ -192,19 +133,90 @@ class Workspace(QtGui.QWidget):
     def minimumSizeHint(self):
         return QtCore.QSize(700, 500)
 
+    def storyObjAt(self, pos):
+        item = self.itemAt(pos)
+
+        # we use graphics item hierarchies and only want to deal with the parents
+        while item != None and item.parentItem():
+            item = item.parentItem()
+
+        return item
+
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
 
-        if self._hoverPage:
+        item = self.storyObjAt(event.pos())
+
+        if isinstance(item, Page):
+            addOptionAction = menu.addAction('Add Option')
             setStartPageAction = menu.addAction('Set as start page')
             action = menu.exec_(self.mapToGlobal(event.pos()))
             if action is setStartPageAction:
-                self.story.setStartPage(self._hoverPage)
+                self.setStartPage(item)
+            elif action is addOptionAction:
+                self.showOptionDialog(item)
         else:
             addPageAction = menu.addAction('Add page')
             action = menu.exec_(self.mapToGlobal(event.pos()))
             if action is addPageAction:
                 self.addPage(event.pos().x(), event.pos().y())
+
+    def setStartPage(self, page):
+        self._startPage = page
+        self.relayoutGraph()
+
+    def relayoutGraph(self):
+        width = self.width()
+
+        #self._startPage.setPos(0, 0)
+
+        # store page levels, counts per level, and page index in level
+        maxLevel = [1]
+        levelByPage = {}
+        pageIndexInLevel = {}
+        levelCount = {}
+        def addChildrenByLevel(page, level):
+            maxLevel[0] = max(maxLevel[0], level)
+            levelByPage[page] = level
+
+            if level not in levelCount:
+                levelCount[level] = 0
+            levelCount[level] += 1
+
+            pageIndexInLevel[page] = levelCount[level] - 1
+
+            for child in page._children:
+                addChildrenByLevel(child, level+1)
+        addChildrenByLevel(self._startPage, 1)
+
+        print(maxLevel)
+        print(levelByPage)
+        print(pageIndexInLevel)
+        print(levelCount)
+
+        queue = [self._startPage]
+        while queue:
+            page = queue.pop(0)
+
+            # render page
+            pageLevel = levelByPage[page]
+            spacing = width / levelCount[pageLevel]
+
+            if page is self._startPage:
+                x = 0
+            else:
+                left = 0.5 * (width - spacing)
+                x = spacing * pageIndexInLevel[page] - left
+            page.setPos(x, pageLevel * 100)
+
+            for child in page._children:
+                queue.append(child)
+
+
+        # update option lines based on new page positions
+        for item in self._scene.items():
+            if isinstance(item, Option):
+                item.updatePosition()
 
     def addPage(self, x, y):
         page = Page(self.story.getUniquePageId())
@@ -214,12 +226,25 @@ class Workspace(QtGui.QWidget):
 
         self._setSelectedPage(page)
 
+    def showOptionDialog(self, page):
+        dialog = QtGui.QInputDialog()
+        dialog.setWindowTitle('Add Option')
+        if dialog.exec_():
+            newPage = Page(0, 200)
+            self._scene.addItem(newPage)
+
+            option = page.addOption(newPage)
+            self._scene.addItem(option)
+
+            self.relayoutGraph()
+
 #        self.story.pages.append({ 'title' : 'new page',
 #                                     'meta' : { 'position' : { 'x' : x, 'y' : y } },
 #                                     })
 #        self.update()
 
     def mousePressEvent(self, event):
+        return
         if self._activeButton is None:
             # picking or moving
             if event.button() == QtCore.Qt.LeftButton: 
@@ -242,6 +267,7 @@ class Workspace(QtGui.QWidget):
         self.update()
 
     def mouseReleaseEvent(self, event):
+        return
         if event.button() == self._activeButton:
             self._activeButton = None
 
@@ -255,6 +281,7 @@ class Workspace(QtGui.QWidget):
             self.update()
 
     def mouseMoveEvent(self, event):
+        return
         if self._activeButton is None or self._activeButton == QtCore.Qt.MiddleButton:
             self._hoverPage = self._pageUnderMouse(event.pos())
         else:
@@ -335,13 +362,13 @@ class AppWindow(QtGui.QMainWindow):
 
         workspace = Workspace()
 
-        centralWidget = self.centralWidget()
+        #centralWidget = self.centralWidget()
         self.workspaceFrame.layout().addWidget(workspace)
-        self.editorFrame.layout().addWidget(workspace.editor())
+        #self.editorFrame.layout().addWidget(workspace.editor())
 
-        self.fileMenu.addAction('Open Story...', workspace.openFile, QtGui.QKeySequence("Ctrl+O"))
-        self.fileMenu.addAction('Save Story...', workspace.saveFile, QtGui.QKeySequence("Ctrl+S"))
-        self.fileMenu.addAction('Save Story As...', workspace.saveFileAs)
+        #self.fileMenu.addAction('Open Story...', workspace.openFile, QtGui.QKeySequence("Ctrl+O"))
+        #self.fileMenu.addAction('Save Story...', workspace.saveFile, QtGui.QKeySequence("Ctrl+S"))
+        #self.fileMenu.addAction('Save Story As...', workspace.saveFileAs)
 
 QtCore.QCoreApplication.setOrganizationName('Night Carnival')
 QtCore.QCoreApplication.setApplicationName('Pagemaster')
