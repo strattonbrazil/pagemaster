@@ -27,13 +27,20 @@ class WorkspaceEditor(QtGui.QWidget):
             self.stack.setCurrentWidget(self.labelWidget)
             return
 
-        self.titleButton.setText('Title: ' + page.title)
-        self.contentArea.setText(page.content)
-        self.setImage(page.imagePath)
+        self._mapCurrentPage()
+        
+        #self.contentArea.setText(page.content)
+        #self.setImage(page.imagePath)
 
-        self.addOptionButton.setEnabled(len(self._eligibleOptions()) > 0)
+        #self.addOptionButton.setEnabled(len(self._eligibleOptions()) > 0)
 
-        self._updateOptionsBox()
+        #self._updateOptionsBox()
+
+    def _mapCurrentPage(self):
+        page = self._currentPage
+
+        self.titleButton.setText('Title: ' + page.title())
+        self.setImage(page.imagePath())
 
     def _updateOptionsBox(self):
         # clear previous items
@@ -67,7 +74,7 @@ class WorkspaceEditor(QtGui.QWidget):
         self.stack.setCurrentWidget(self.pageEditWidget)
 
     def updateTitle(self):
-        title = self._currentPage.title
+        title = self._currentPage.title()
 
         dialog = QtGui.QInputDialog()
         dialog.setWindowTitle('Update Title')
@@ -80,11 +87,11 @@ class WorkspaceEditor(QtGui.QWidget):
         if updateTitle == '':
             return
 
-        self.titleButton.setText('Title: ' + updateTitle)
+        #self.titleButton.setText('Title: ' + updateTitle)
 
-        self._currentPage.title = updateTitle
-        
-        self._workspace.update()
+        self._currentPage.setTitle(updateTitle)
+
+        self._mapCurrentPage()
 
     def updateImage(self):
         settings = QtCore.QSettings()
@@ -96,6 +103,7 @@ class WorkspaceEditor(QtGui.QWidget):
             self.setImage(imagePath)
 
             settings.setValue('lastUploadImageDir', QtCore.QFileInfo(imagePath).canonicalPath())
+        
 
     def removeImage(self):
         self._currentPage.imagePath = ''

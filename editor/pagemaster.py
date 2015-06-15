@@ -12,7 +12,7 @@ from pagedialog import PageDialog
 from editor import WorkspaceEditor
 #from models import Story, Page
 
-class Page(QtGui.QGraphicsRectItem):#ItemGroup): #RectItem):
+class Page(QtGui.QGraphicsRectItem):#ItemGroup): #RectItem):    
     def __init__(self, x, y):
         super(Page, self).__init__(0, 0, 80, 20)
 
@@ -22,17 +22,34 @@ class Page(QtGui.QGraphicsRectItem):#ItemGroup): #RectItem):
 
         self.setPos(x, y)
 
+        self._borderItem = QtGui.QGraphicsRectItem(self)
+        self.setDisplayMode(False, False)
+
         self._textItem = QtGui.QGraphicsTextItem(self)
+        self._imagePath = None
 
         self.setTitle('hello')
 
     def paint(self, painter, option, widget):
+
         super(Page, self).paint(painter, option, widget)
 
     def setTitle(self, title):
         self._textItem.setPlainText(title)
 
         self.setRect(self._textItem.boundingRect())
+
+    def setRect(self, rect):
+        super(Page, self).setRect(rect)
+
+        borderRect = rect.adjusted(-2, -2, 2, 2)
+        self._borderItem.setRect(borderRect)
+
+    def title(self):
+        return self._textItem.toPlainText()
+
+    def imagePath(self):
+        return self._imagePath
 
     def addOption(self, toPage):
         fromPage = self
@@ -41,6 +58,21 @@ class Page(QtGui.QGraphicsRectItem):#ItemGroup): #RectItem):
         self._children.append(toPage)
 
         return option
+
+    def setDisplayMode(self, selected, hovered):
+        if hovered:
+            if selected:
+                color = QtGui.QColor(150, 50, 150)
+            else:
+                color = QtGui.QColor(250, 50, 150)
+        else:
+            if selected:
+                color = QtGui.QColor(150, 250, 150)
+            else:
+                color = QtGui.QColor(150, 150, 150)
+
+
+        self._borderItem.setBrush(QtGui.QBrush(color))
 
 class Option(QtGui.QGraphicsLineItem):
     def __init__(self, page1, page2):
@@ -83,12 +115,15 @@ class Workspace(QtGui.QGraphicsView):
 
         page1 = Page(0, 0)
         self._scene.addItem(page1)
+        self.pages.append(page1)
 
         page2 = Page(100, 100)
         self._scene.addItem(page2)
+        self.pages.append(page2)
 
         page3 = Page(100, 0)
         self._scene.addItem(page3)
+        self.pages.append(page3)
 
         option = page1.addOption(page2)
         self._scene.addItem(option)
@@ -114,10 +149,9 @@ class Workspace(QtGui.QGraphicsView):
             self._editor = WorkspaceEditor(self)
         return self._editor
 
-    #def paintEvent(self, event):
-
+    def paintEvent(self, event):
         # call the parent code to draw scene
-        #super(Workspace, self).paintEvent(event)
+        super(Workspace, self).paintEvent(event)
 
         # do a bit more of my own thing
         #print('repainting')
@@ -189,11 +223,6 @@ class Workspace(QtGui.QGraphicsView):
                 addChildrenByLevel(child, level+1)
         addChildrenByLevel(self._startPage, 1)
 
-        print(maxLevel)
-        print(levelByPage)
-        print(pageIndexInLevel)
-        print(levelCount)
-
         queue = [self._startPage]
         while queue:
             page = queue.pop(0)
@@ -244,64 +273,59 @@ class Workspace(QtGui.QGraphicsView):
 #        self.update()
 
     def mousePressEvent(self, event):
-        return
-        if self._activeButton is None:
-            # picking or moving
-            if event.button() == QtCore.Qt.LeftButton: 
-                self._setSelectedPage(self._pageUnderMouse(event.pos()))
-                self._mousePick = event.pos()
+        # picking or moving
+        if event.button() == QtCore.Qt.LeftButton: 
+            page = self.storyObjAt(event.pos())
 
-                if self._selectedPage:
-                    self._mode = 'MOVE'
-                else:
-                    self._mode = 'BOX_SELECT'
+            self._setSelectedPage(page)
+            #self._setSelectedPage(self._pageUnderMouse(event.pos()))
+            #self._mousePick = event.pos()
 
-                self._activeButton = event.button()      
+            #if self._selectedPage:
+            #    self._mode = 'MOVE'
+            #else:
+            #    self._mode = 'BOX_SELECT'
 
-            # connect an option
-            elif event.button() == QtCore.Qt.MiddleButton and self._hoverPage:
-                self._setSelectedPage(self._pageUnderMouse(event.pos()))
-                self._mode = 'ADD_OPTION'
-                self._activeButton = event.button()
+            #self._activeButton = event.button()      
 
-        self.update()
+        self._update()
 
     def mouseReleaseEvent(self, event):
-        return
         if event.button() == self._activeButton:
             self._activeButton = None
 
             # connect an option
-            if event.button() == QtCore.Qt.MiddleButton and self._hoverPage:
-            
-                if self._selectedPage != self._hoverPage:
-                    self.editor().addOption(self._hoverPage)
+#            if event.button() == QtCore.Qt.MiddleButton and self._hoverPage:
+#            
+#                if self._selectedPage != self._hoverPage:
+#                    self.editor().addOption(self._hoverPage)
 
-            self._mode = None
-            self.update()
+#            self._mode = None
+            self._update()
 
     def mouseMoveEvent(self, event):
-        return
-        if self._activeButton is None or self._activeButton == QtCore.Qt.MiddleButton:
-            self._hoverPage = self._pageUnderMouse(event.pos())
-        else:
-            self._hoverPage = None
+        self._hoverPage = None
 
-        if self._activeButton == None:
-            pass
-        elif self._activeButton == QtCore.Qt.LeftButton:
-            # drag around selected page
-            if self._selectedPage:
-                position = self._selectedPage.meta['position']
-                xDiff = event.pos().x() - self._mousePick.x()
-                yDiff = event.pos().y() - self._mousePick.y()
-                position['x'] = position['x'] + xDiff
-                position['y'] = position['y'] + yDiff
-                self._mousePick = event.pos()
+        page = self.storyObjAt(event.pos())
+        if type(page) is Page:
+            #page.setHovered(True)
+            self._hoverPage = page
+
+        self._update()
+
+    def _update(self):
+        # update page colors
+        for page in self.pages:
+            page.setDisplayMode(page is self._selectedPage, page is self._hoverPage)
+
+
+
+    #    print('here')
 
         self.update()
 
     def _pageUnderMouse(self, pos):
+        
         for page in self.story.getPages():
             pagePos = page.meta['position']
 
@@ -324,7 +348,6 @@ class Workspace(QtGui.QGraphicsView):
             self.editor().setPage(page)
 
         self._selectedPage = page
-        
 
     def openFile(self):
         fileName = QtGui.QFileDialog.getOpenFileName(self, 'Choose a file to open', '', '*.json')
@@ -364,7 +387,7 @@ class AppWindow(QtGui.QMainWindow):
 
         #centralWidget = self.centralWidget()
         self.workspaceFrame.layout().addWidget(workspace)
-        #self.editorFrame.layout().addWidget(workspace.editor())
+        self.editorFrame.layout().addWidget(workspace.editor())
 
         #self.fileMenu.addAction('Open Story...', workspace.openFile, QtGui.QKeySequence("Ctrl+O"))
         #self.fileMenu.addAction('Save Story...', workspace.saveFile, QtGui.QKeySequence("Ctrl+S"))
